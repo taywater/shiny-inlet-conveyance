@@ -1,11 +1,14 @@
 #Inlet Conveyance module
 #3 tabs: View future ICT, past ICT, add/edit ICTs by site
 
+#1.0 UI --------
 inlet_conveyanceUI <- function(id, label = "inlet_conveyance", site_names, html_req, work_number, priority, con_phase, future_req){
   ns <- NS(id)
-  navbarPage("Inlet Conveyance", theme = shinytheme("cerulean"), id = "inTabset", 
+  navbarPage("Inlet Conveyance", theme = shinytheme("cerulean"), id = "inTabset",
+             #1.1 Add/Edit -----
              tabPanel("Add/Edit Inlet Conveyance Test", value = "ict_tab", 
                       titlePanel("Add/Edit Inlet Conveyance Test (ICT)"), 
+                      #1.1.1 sidebarPanel ----
                       sidebarPanel(
                         style = "overflow-y:scroll; overflow-x:hidden; max-height: 650px",
                                   h5("Prioritize System ID, then Work Number, then Site Name. Only one is required."),
@@ -60,6 +63,7 @@ inlet_conveyanceUI <- function(id, label = "inlet_conveyance", site_names, html_
                         fluidRow(
                           HTML(paste(html_req(""), " indicates required field for complete tests. ", future_req(""), " indicates required field for future tests.")))
                       ), 
+                      #1.1.2 mainPanel / tables -------
                       mainPanel(
                         conditionalPanel(condition = "input.system_id || input.work_number || input.site_name", 
                                          ns  = ns, 
@@ -69,27 +73,33 @@ inlet_conveyanceUI <- function(id, label = "inlet_conveyance", site_names, html_
                                          DTOutput(ns("ict_table"))),
              ),
                       ), 
+             #1.2 View all -----
              tabPanel("View Inlet Conveyance Tests", value = ns("view_ict"), 
                       titlePanel("All Inlet Conveyance Tests"), 
                       reactableOutput(ns("all_ict_table"))
              ), 
+             #1.3 View future -----
              tabPanel("View Future Inlet Conveyance Tests", value = ns("view_future_ict"), 
                       titlePanel("All Future Inlet Conveyance Tests"), 
                       reactableOutput(ns("all_future_ict_table")))
              )
 }
 
+#2.0 Server -----
 inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_id, special_char_replace){
   moduleServer(
     id, 
     function(input, output, session){
   
       
+      #2.0.1 set up ----
       #define ns to use in modals 
       ns <- session$ns
       
       rv <- reactiveValues()
       
+      #2.1 Add/Edit ---- 
+      #2.1.0 Set up ----
       #updates system ids
       updateSelectizeInput(session, "system_id", choices = sys_id, selected = character(0), server = TRUE)
       
@@ -98,7 +108,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       observe(toggleState("system_id", condition = nchar(input$work_number) == 0 & nchar(input$site_name) == 0))
       observe(toggleState("site_name", condition = nchar(input$system_id) == 0 & nchar(input$work_number) == 0 ))
       
-      
+      #2.1.1 Headers ------
       #Get the Project name, combine it with System ID, and create a reactive header
       rv$sys_and_name_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select system_id, project_name from project_names where system_id = '", input$system_id, "'")))
       
@@ -131,6 +141,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       )
       
       
+      #2.1.2 togge states ------
       #toggle "add test" button so it is only active when certain fields are complete
       observe(toggleState("add_test", condition = (nchar(input$system_id) > 0 | nchar(input$work_number) > 0 | nchar(input$site_name) > 0) &
                             length(input$date) > 0 &
@@ -159,6 +170,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       observe(toggleState(id = "comp_id_custom", condition = input$comp_id == ""))
       observe(toggleState(id = "comp_id", condition = input$comp_id_custom == "" & nchar(input$work_number) == 0 & nchar(input$site_name) == 0))
       
+      #2.1.3 show component IDs based on SMPs/sites ------
       #component IDs
       #adjust query to accurately target NULL values once back on main server
       rv$component_and_asset_query <- reactive(paste0("SELECT component_id, asset_type FROM smpid_facilityid_componentid_inlets_limited WHERE system_id = '", input$system_id, "' AND component_id != 'NULL'"))
@@ -197,6 +209,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       #make facility id nullable
       rv$facility_id <- reactive(if(nchar(input$facility_id) > 0) paste0("'", input$facility_id, "'") else "NULL")
       
+      #2.1.4 prepare inputs -----
       #lookup priority uid
       rv$priority_lookup_uid_query <- reactive(paste0("select field_test_priority_lookup_uid from fieldwork.field_test_priority_lookup where field_test_priority = '", input$priority, "'"))
       rv$priority_lookup_uid_step <- reactive(dbGetQuery(poolConn, rv$priority_lookup_uid_query()))
@@ -253,6 +266,8 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       rv$notes_step_two <- reactive(special_char_replace(rv$notes_step()))
       rv$notes <- reactive(if(nchar(rv$notes_step_two()) == 0) "NULL" else paste0("'", rv$notes_step_two(), "'"))
       
+      
+      #2.1.5 query and show tables -------
       #get the table of ICTs
       rv$ict_table_query <- reactive(paste0("SELECT * FROM fieldwork.inlet_conveyance_full 
                                             WHERE system_id = '", input$system_id, "'
@@ -305,7 +320,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       )
       
       
-      
+      #2.1.6 Edit / prefill fields ------
       #when you click on a row, populate fields with data from that row
       observeEvent(input$ict_table_rows_selected, {
         
@@ -398,7 +413,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       })
       
       
-      
+      #2.1.7 Label toggle ------
       #add/edit button toggle
       rv$label <- reactive(if(length(input$ict_table_rows_selected) == 0) "Add New" else "Edit Selected")
       observe(updateActionButton(session, "add_test", label = rv$label()))
@@ -406,6 +421,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       rv$future_label <- reactive(if(length(input$future_ict_table_rows_selected) == 0) "Add Future Inlet Conveyance Test" else "Edit Selected Future ICT")
       observe(updateActionButton(session, "future_test", label = rv$future_label()))
       
+      #2.1.8 Add/Edit/Clear/Delete -------
       #add and edit inlet conveyance records
       observeEvent(input$add_test, {
         if(length(input$ict_table_rows_selected) == 0){
@@ -553,8 +569,29 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         removeModal()
       })
       
-        # View all ICTs -----------------------------------------------------------
-    
+      #delete a future ICT
+      #first, intermediate dialog box
+      observeEvent(input$delete_future_test, {
+        showModal(modalDialog(title = "Delete Future Inlet Conveyance Test", 
+                              "Delete Future Inlet Conveyance Test?", 
+                              modalButton("No"), 
+                              actionButton(ns("confirm_delete_future"), "Yes")))
+      })
+      
+      observeEvent(input$confirm_delete_future, {
+        odbc::dbGetQuery(poolConn, 
+                         paste0("DELETE FROM fieldwork.future_inlet_conveyance WHERE future_inlet_conveyance_uid = '",
+                                rv$future_ict_table_db()[input$future_ict_table_rows_selected, 1], "'"))
+        
+        #update future cet table
+        rv$future_ict_table_db <- reactive(odbc::dbGetQuery(poolConn, future_ict_table_query()))
+        rv$all_future_ict_table_db <- reactive(reactive(odbc::dbGetQuery(poolConn, rv$all_future_query())))
+        #remove pop up
+        removeModal()
+      }) 
+      
+      #2.2 View all ICTs -----------------------------------------------------------
+      #2.2.1 query and show table ------
       rv$all_query <- reactive(paste0("SELECT * FROM fieldwork.inlet_conveyance_full ORDER BY test_date DESC"))
       rv$all_ict_table_db <- reactive(dbGetQuery(poolConn, rv$all_query()))
       rv$all_ict_table <- reactive(rv$all_ict_table_db() %>% 
@@ -619,6 +656,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         )
         )
       
+      #2.2.2 click a row ----
       #select row in full ict table
       observeEvent(input$ict_selected, {
         
@@ -646,8 +684,8 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         })
       })
       
-      #View Future ICTs
-      
+      #2.3 View Future ICTs ------
+      #2.3.1 query and show table ----
       rv$all_future_query <- reactive(paste0("SELECT * FROM fieldwork.future_inlet_conveyance_full ORDER BY field_test_priority_lookup_uid DESC"))
       rv$all_future_ict_table_db <- reactive(dbGetQuery(poolConn, rv$all_future_query()))
       rv$all_future_ict_table <- reactive(rv$all_future_ict_table_db() %>% 
@@ -684,6 +722,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         )
       )
       
+      #2.3.2 click a row ----
       #select fow in full ict table
       observeEvent(input$future_ict_selected, {
         
@@ -713,33 +752,6 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
               )
       })
       
-      #delete a future SI
-      #first, intermediate dialog box
-      observeEvent(input$delete_future_test, {
-        showModal(modalDialog(title = "Delete Future Inlet Conveyance Test", 
-                              "Delete Future Inlet Conveyance Test?", 
-                              modalButton("No"), 
-                              actionButton(ns("confirm_delete_future"), "Yes")))
-      })
-      
-      observeEvent(input$confirm_delete_future, {
-        odbc::dbGetQuery(poolConn, 
-                         paste0("DELETE FROM fieldwork.future_inlet_conveyance WHERE future_inlet_conveyance_uid = '",
-                                rv$future_ict_table_db()[input$future_ict_table_rows_selected, 1], "'"))
-        
-        #update future cet table
-        rv$future_ict_table_db <- reactive(odbc::dbGetQuery(poolConn, future_ict_table_query()))
-        rv$all_future_ict_table_db <- reactive(reactive(odbc::dbGetQuery(poolConn, rv$all_future_query())))
-        #remove pop up
-        removeModal()
-      }) 
-      
-      # observeEvent(rv$future_ict_table_db(), {
-      #   if(length(input$future_ict_selected) > 0){
-      #     future_ict_row <- which(rv$future_ict_table_db()$future_inlet_conveyance_uid == rv$all_future_ict_table_db()$future_inlet_conveyance_uid[input$future_ict_selected], arr.ind = TRUE)
-      #     dataTableProxy('future_ict_table') %>% selectRows(future_ict_row)
-      #   }
-      # })
       
     }
   )
