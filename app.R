@@ -31,7 +31,7 @@ options(DT.options = list(pageLength = 15))
 #set db connection
 #using a pool connection so separate connnections are unified
 #gets environmental variables saved in local or pwdrstudio environment
-poolConn <- dbPool(odbc(), dsn = "mars_testing", uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
+poolConn <- dbPool(odbc(), dsn = "mars_data", uid = Sys.getenv("new_shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
 
 #disconnect from db on stop 
 onStop(function(){
@@ -78,7 +78,7 @@ ui <- function(req){
   priority <- dbGetQuery(poolConn, "select * from fieldwork.field_test_priority_lookup")
   
   #project work numbers
-  work_number <- dbGetQuery(poolConn, "select distinct worknumber from greenit_projectbestdata") %>% pull()
+  work_number <- dbGetQuery(poolConn, "select distinct worknumber from external.projectbdv") %>% pull()
   
   # 1.2: actual UI------------------------
   
@@ -108,7 +108,7 @@ server <- function(input, output, session) {
   con_phase <- dbGetQuery(poolConn, "select * from fieldwork.con_phase_lookup")
   
   #all system ids
-  sys_id <- odbc::dbGetQuery(poolConn, paste0("select distinct system_id from smpid_facilityid_componentid")) %>% 
+  sys_id <- odbc::dbGetQuery(poolConn, paste0("select distinct system_id from external.assets")) %>% 
     dplyr::arrange(system_id) %>% 
     dplyr::pull()
   
