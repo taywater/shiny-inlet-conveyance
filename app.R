@@ -3,7 +3,7 @@
 #See Fieldwork App R script for more details 
 
 # SET UP
-#0.0: load libraries --------------
+#0.0: load libraries -------------
 #shiny
 library(shiny)
 #pool for database connections
