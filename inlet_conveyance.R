@@ -4,7 +4,7 @@
 #1.0 UI --------
 inlet_conveyanceUI <- function(id, label = "inlet_conveyance", site_names, html_req, work_number, priority, con_phase, future_req){
   ns <- NS(id)
-  navbarPage("Inlet Conveyance", id = "inTabset",
+  navbarPage("Inlet Conveyance", theme = shinytheme("cerulean"), id = "inTabset",
              #1.1 Add/Edit -----
              tabPanel("Add/Edit Inlet Conveyance Test", value = "ict_tab", 
                       titlePanel("Add/Edit Inlet Conveyance Test (ICT)"), 
