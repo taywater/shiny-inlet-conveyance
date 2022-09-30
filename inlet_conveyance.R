@@ -4,7 +4,7 @@
 #1.0 UI --------
 inlet_conveyanceUI <- function(id, label = "inlet_conveyance", site_names, html_req, work_number, priority, con_phase, future_req){
   ns <- NS(id)
-  navbarPage("Inlet Conveyance", theme = shinytheme("cerulean"), id = "inTabset",
+  navbarPage("Inlet Conveyance", id = "inTabset",
              #1.1 Add/Edit -----
              tabPanel("Add/Edit Inlet Conveyance Test", value = "ict_tab", 
                       titlePanel("Add/Edit Inlet Conveyance Test (ICT)"), 
@@ -110,12 +110,12 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #2.1.1 Headers ------
       #Get the Project name, combine it with System ID, and create a reactive header
-      rv$sys_and_name_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select system_id, project_name from project_names where system_id = '", input$system_id, "'")))
+      rv$sys_and_name_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select system_id, project_name from external.mat_project_names where system_id = '", input$system_id, "'")))
       
       rv$sys_and_name <- reactive(paste(rv$sys_and_name_step()$system_id[1], rv$sys_and_name_step()$project_name[1]))
       
       #Get project name from work number
-      rv$worknumber_and_name_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select worknumber, project_name from project_names where worknumber = '", input$work_number, "'")))
+      rv$worknumber_and_name_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select worknumber, project_name from external.mat_project_names where worknumber = '", input$work_number, "'")))
       
       rv$worknumber_and_name <- reactive(paste(rv$worknumber_and_name_step()$worknumber[1],
                                                rv$worknumber_and_name_step()$project_name[1]))
@@ -173,7 +173,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       #2.1.3 show component IDs based on SMPs/sites ------
       #component IDs
       #adjust query to accurately target NULL values once back on main server
-      rv$component_and_asset_query <- reactive(paste0("SELECT component_id, asset_type FROM smpid_facilityid_componentid_inlets_limited WHERE system_id = '", input$system_id, "' AND component_id != 'NULL'"))
+      rv$component_and_asset_query <- reactive(paste0("SELECT component_id, asset_type FROM external.mat_assets_ict_limited WHERE system_id = '", input$system_id, "' AND component_id != 'NULL'"))
       rv$component_and_asset <- reactive(odbc::dbGetQuery(poolConn, rv$component_and_asset_query()))
       
       rv$asset_comp <- reactive(rv$component_and_asset() %>% 
@@ -196,9 +196,9 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       #get facility ID for systems. Either use SMP footprint (for an unknown component) or the facility ID of the existing component
       rv$facility_id_system <- reactive(if(input$comp_id != ""){
         odbc::dbGetQuery(poolConn, paste0(
-          "SELECT facility_id from smpid_facilityid_componentid_inlets_limited WHERE component_id = '", rv$select_component_id(), "'"))[1,1]
+          "SELECT facility_id from external.mat_assets_ict_limited WHERE component_id = '", rv$select_component_id(), "'"))[1,1]
       }else if(input$system_id != ""){
-        odbc::dbGetQuery(poolConn, paste0("SELECT facility_id from smpid_facilityid_componentid_inlets_limited WHERE component_id is NULL and system_id = '", input$system_id, "' LIMIT 1"))
+        odbc::dbGetQuery(poolConn, paste0("SELECT facility_id from external.mat_assets_ict_limited WHERE component_id is NULL and system_id = '", input$system_id, "' LIMIT 1"))
       }else{
         ""
       }
@@ -211,12 +211,12 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #2.1.4 prepare inputs -----
       #lookup priority uid
-      rv$priority_lookup_uid_query <- reactive(paste0("select field_test_priority_lookup_uid from fieldwork.field_test_priority_lookup where field_test_priority = '", input$priority, "'"))
+      rv$priority_lookup_uid_query <- reactive(paste0("select field_test_priority_lookup_uid from fieldwork.tbl_field_test_priority_lookup where field_test_priority = '", input$priority, "'"))
       rv$priority_lookup_uid_step <- reactive(dbGetQuery(poolConn, rv$priority_lookup_uid_query()))
       rv$priority_lookup_uid <- reactive(if(nchar(input$priority) == 0) "NULL" else paste0("'", rv$priority_lookup_uid_step(), "'"))
       
       #lookup site name uid
-      rv$site_name_lookup_uid_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select site_name_lookup_uid from fieldwork.site_name_lookup where site_name = '", input$site_name, "'")) %>% pull())
+      rv$site_name_lookup_uid_step <- reactive(odbc::dbGetQuery(poolConn, paste0("select site_name_lookup_uid from fieldwork.tbl_site_name_lookup where site_name = '", input$site_name, "'")) %>% pull())
       
       rv$site_name_lookup_uid <- reactive(if (nchar(input$site_name) > 0) paste0("'", rv$site_name_lookup_uid_step(), "'") else "NULL")
       
@@ -269,7 +269,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #2.1.5 query and show tables -------
       #get the table of ICTs
-      rv$ict_table_query <- reactive(paste0("SELECT * FROM fieldwork.inlet_conveyance_full 
+      rv$ict_table_query <- reactive(paste0("SELECT * FROM fieldwork.viw_inlet_conveyance_full 
                                             WHERE system_id = '", input$system_id, "'
                                             OR work_number = ", rv$work_number(), " 
                                             OR site_name_lookup_uid = ", rv$site_name_lookup_uid()))
@@ -299,7 +299,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #get table of future ICTs
       #query future CETs
-      future_ict_table_query <- reactive(paste0("SELECT * FROM fieldwork.future_inlet_conveyance_full 
+      future_ict_table_query <- reactive(paste0("SELECT * FROM fieldwork.viw_future_inlet_conveyance_full 
                                                 WHERE system_id = '", input$system_id, "' 
                                                 OR work_number = ", rv$work_number(), " 
                                                 OR site_name_lookup_uid = ", rv$site_name_lookup_uid(), " 
@@ -334,7 +334,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         rv$fac <- if(is.na(rv$fac_step)) "NULL" else paste0("'", rv$fac_step, "'")
           
         #get component id
-        comp_id_query <- paste0("select distinct component_id from smpid_facilityid_componentid_inlets_limited where facility_id = ", rv$fac, "
+        comp_id_query <- paste0("select distinct component_id from external.mat_assets_ict_limited where facility_id = ", rv$fac, "
             AND component_id IS NOT NULL")
         comp_id_step <- odbc::dbGetQuery(poolConn, comp_id_query) %>% pull()
         #determine whether component id exists and is useful
@@ -377,7 +377,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         rv$fac_step <- (rv$future_ict_table_db()$facility_id[input$future_ict_table_rows_selected])
         rv$fac <- if(is.na(rv$fac_step)) "NULL" else paste0("'", rv$fac_step, "'")
         #get component id
-        comp_id_query <- paste0("select distinct component_id from smpid_facilityid_componentid_inlets_limited where facility_id = ", rv$fac, "
+        comp_id_query <- paste0("select distinct component_id from external.mat_assets_ict_limited where facility_id = ", rv$fac, "
             AND component_id IS NOT NULL")
         comp_id_step <- odbc::dbGetQuery(poolConn, comp_id_query) %>% pull()
         #determine whether component id exists and is useful
@@ -426,7 +426,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       observeEvent(input$add_test, {
         if(length(input$ict_table_rows_selected) == 0){
           #add to inlet conveyance
-          add_test_query <- paste0("INSERT INTO fieldwork.inlet_conveyance (system_id, work_number, site_name_lookup_uid, 
+          add_test_query <- paste0("INSERT INTO fieldwork.tbl_inlet_conveyance (system_id, work_number, site_name_lookup_uid, 
           component_id, facility_id, test_date, con_phase_lookup_uid, calculated_flow_rate_cfm, equilibrated_flow_rate_cfm, 
           test_volume_cf, max_water_depth_ft, surcharge, time_to_surcharge_min, photos_uploaded, summary_report_sent, notes)
         	                  VALUES (", paste(rv$system_id(), rv$work_number(), rv$site_name_lookup_uid(), rv$component_id(), 
@@ -438,7 +438,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
           odbc::dbGetQuery(poolConn, add_test_query)
         }else{
           #edit inlet conveyance
-          edit_test_query <- paste0("UPDATE fieldwork.inlet_conveyance SET system_id = ", rv$system_id(), ",
+          edit_test_query <- paste0("UPDATE fieldwork.tbl_inlet_conveyance SET system_id = ", rv$system_id(), ",
                                    work_number = ", rv$work_number(), ", 
                                    site_name_lookup_uid = ", rv$site_name_lookup_uid(), ", 
                                     component_id = ", rv$component_id(), ", 
@@ -460,7 +460,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         }
         
         if(length(input$future_ict_table_rows_selected) > 0){
-          odbc::dbGetQuery(poolConn, paste0("DELETE FROM fieldwork.future_inlet_conveyance 
+          odbc::dbGetQuery(poolConn, paste0("DELETE FROM fieldwork.tbl_future_inlet_conveyance 
                                             WHERE future_inlet_conveyance_uid = '", rv$future_ict_table_db()[input$future_ict_table_rows_selected, 1], "'"))
         }
         
@@ -489,7 +489,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       observeEvent(input$future_test, {
         if(length(input$future_ict_table_rows_selected) == 0){
           #add to inlet conveyance
-          add_future_test_query <- paste0("INSERT INTO fieldwork.future_inlet_conveyance (system_id, work_number, site_name_lookup_uid, 
+          add_future_test_query <- paste0("INSERT INTO fieldwork.tbl_future_inlet_conveyance (system_id, work_number, site_name_lookup_uid, 
           component_id, facility_id, con_phase_lookup_uid, calculated_flow_rate_cfm, 
           field_test_priority_lookup_uid, notes)
         	                  VALUES (", paste(rv$system_id(), rv$work_number(), rv$site_name_lookup_uid(), rv$component_id(), 
@@ -501,7 +501,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
         }else{
           #edit inlet conveyance
           
-          edit_future_test_query <- paste0("UPDATE fieldwork.future_inlet_conveyance SET system_id = ", rv$system_id(), ",
+          edit_future_test_query <- paste0("UPDATE fieldwork.tbl_future_inlet_conveyance SET system_id = ", rv$system_id(), ",
                                    work_number = ", rv$work_number(), ", 
                                    site_name_lookup_uid = ", rv$site_name_lookup_uid(), ", 
                                     component_id = ", rv$component_id(), ", 
@@ -580,7 +580,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       observeEvent(input$confirm_delete_future, {
         odbc::dbGetQuery(poolConn, 
-                         paste0("DELETE FROM fieldwork.future_inlet_conveyance WHERE future_inlet_conveyance_uid = '",
+                         paste0("DELETE FROM fieldwork.tbl_future_inlet_conveyance WHERE future_inlet_conveyance_uid = '",
                                 rv$future_ict_table_db()[input$future_ict_table_rows_selected, 1], "'"))
         
         #update future cet table
@@ -592,7 +592,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #2.2 View all ICTs -----------------------------------------------------------
       #2.2.1 query and show table ------
-      rv$all_query <- reactive(paste0("SELECT * FROM fieldwork.inlet_conveyance_full ORDER BY test_date DESC"))
+      rv$all_query <- reactive(paste0("SELECT * FROM fieldwork.viw_inlet_conveyance_full ORDER BY test_date DESC"))
       rv$all_ict_table_db <- reactive(dbGetQuery(poolConn, rv$all_query()))
       rv$all_ict_table <- reactive(rv$all_ict_table_db() %>% 
                                      mutate(across(c("test_date","summary_report_sent"), as.character)) %>% 
@@ -686,7 +686,7 @@ inlet_conveyanceServer <- function(id, parent_session, poolConn, con_phase, sys_
       
       #2.3 View Future ICTs ------
       #2.3.1 query and show table ----
-      rv$all_future_query <- reactive(paste0("SELECT * FROM fieldwork.future_inlet_conveyance_full ORDER BY field_test_priority_lookup_uid DESC"))
+      rv$all_future_query <- reactive(paste0("SELECT * FROM fieldwork.viw_future_inlet_conveyance_full ORDER BY field_test_priority_lookup_uid DESC"))
       rv$all_future_ict_table_db <- reactive(dbGetQuery(poolConn, rv$all_future_query()))
       rv$all_future_ict_table <- reactive(rv$all_future_ict_table_db() %>% 
                                      dplyr::select("system_id", "project_name", "component_id", "phase",
