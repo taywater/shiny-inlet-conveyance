@@ -31,7 +31,7 @@ options(DT.options = list(pageLength = 15))
 #set db connection
 #using a pool connection so separate connnections are unified
 #gets environmental variables saved in local or pwdrstudio environment
-poolConn <- dbPool(odbc(), dsn = "mars_testing", uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
+poolConn <- dbConnect(odbc::odbc(), dsn = "mars14_data", uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
 
 #disconnect from db on stop 
 onStop(function(){
@@ -56,13 +56,13 @@ ui <- function(req){
   #define global variables that will be required each time the UI runs
   
   #query site names (non SMP)
-  site_name_query <- "select * from fieldwork.site_name_lookup"
+  site_name_query <- "select * from fieldwork.tbl_site_name_lookup"
   site_names <- odbc::dbGetQuery(poolConn, site_name_query) %>% 
     dplyr::arrange(site_name) %>% 
     dplyr::pull()
   
   #construction phase types
-  con_phase <- dbGetQuery(poolConn, "select * from fieldwork.con_phase_lookup")
+  con_phase <- dbGetQuery(poolConn, "select * from fieldwork.tbl_con_phase_lookup")
   
   #this function adds a little red star to indicate that a field is required. It uses HTML, hence "html_req"
   html_req <- function(label){
@@ -75,10 +75,10 @@ ui <- function(req){
   }
   
   #field test priority
-  priority <- dbGetQuery(poolConn, "select * from fieldwork.field_test_priority_lookup")
+  priority <- dbGetQuery(poolConn, "select * from fieldwork.tbl_field_test_priority_lookup")
   
   #project work numbers
-  work_number <- dbGetQuery(poolConn, "select distinct worknumber from greenit_projectbestdata") %>% pull()
+  work_number <- dbGetQuery(poolConn, "select distinct worknumber from external.tbl_projectbdv") %>% pull()
   
   # 1.2: actual UI------------------------
   
@@ -105,10 +105,10 @@ server <- function(input, output, session) {
   #define global variables that will be defined each time server runs
   
   #con phase
-  con_phase <- dbGetQuery(poolConn, "select * from fieldwork.con_phase_lookup")
+  con_phase <- dbGetQuery(poolConn, "select * from fieldwork.tbl_con_phase_lookup")
   
   #all system ids
-  sys_id <- odbc::dbGetQuery(poolConn, paste0("select distinct system_id from smpid_facilityid_componentid")) %>% 
+  sys_id <- odbc::dbGetQuery(poolConn, paste0("select distinct system_id from external.mat_assets")) %>% 
     dplyr::arrange(system_id) %>% 
     dplyr::pull()
   
