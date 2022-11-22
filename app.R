@@ -33,11 +33,6 @@ options(DT.options = list(pageLength = 15))
 #gets environmental variables saved in local or pwdrstudio environment
 poolConn <- dbConnect(odbc::odbc(), dsn = "mars14_data", uid = Sys.getenv("shiny_uid"), pwd = Sys.getenv("shiny_pwd"))
 
-#disconnect from db on stop 
-onStop(function(){
-  poolClose(poolConn)
-})
-
 #js warning about leaving page
 jscode <- 'window.onbeforeunload = function() { return "Please use the button on the webpage"; };'
 
